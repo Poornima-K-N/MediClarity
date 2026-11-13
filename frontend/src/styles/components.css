@@ -711,3 +711,189 @@
   width: 20px;
   height: 20px;
 }
+
+
+/* ==========================================================================
+   10. Module 2: Extraction Preview & Processing States
+   ========================================================================== */
+.dropzone.processing {
+  cursor: wait;
+  background-color: var(--color-primary-subtle);
+  border-color: var(--color-primary);
+}
+
+.processing-pulse-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background-color: #FFFFFF;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  animation: pulse-glow 1.8s ease-in-out infinite;
+}
+
+.spinner-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.extraction-error-card {
+  margin-top: var(--spacing-md);
+  padding: 12px 14px;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-md);
+  color: #991B1B;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  animation: fadeIn 200ms ease-out;
+}
+
+.extraction-error-card .error-icon {
+  color: #DC2626;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Extraction Preview Card */
+.extraction-preview-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--spacing-xl);
+  animation: slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.extraction-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+@media (min-width: 640px) {
+  .extraction-header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.extraction-title {
+  font-size: 1.15rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
+  word-break: break-all;
+}
+
+.extraction-meta-subtitle {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.extraction-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+/* Method Badges */
+.badge-digital {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.badge-ocr {
+  background-color: #EEF2FF;
+  color: #3730A3;
+  border: 1px solid #C7D2FE;
+}
+
+.badge-hybrid {
+  background-color: #F0F9FF;
+  color: #075985;
+  border: 1px solid #BAE6FD;
+}
+
+/* Page Tabs */
+.page-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2xs);
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  scrollbar-width: thin;
+}
+
+.page-tab {
+  font-size: 0.775rem;
+  font-weight: var(--font-weight-medium);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+.page-tab:hover {
+  background-color: #E2E8F0;
+  color: var(--color-text-main);
+}
+
+.page-tab.active {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Text Viewer */
+.extracted-text-viewer {
+  background-color: #F8FAFC;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  max-height: 340px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.825rem;
+  line-height: 1.6;
+  color: #1E293B;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: var(--spacing-md);
+}
+
+.extracted-text-viewer pre {
+  margin: 0;
+  font-family: inherit;
+  white-space: pre-wrap;
+}
+
+/* Ephemeral Privacy Note */
+.ephemeral-privacy-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 8px 12px;
+  background-color: var(--color-primary-subtle);
+  border-radius: var(--radius-md);
+  font-size: 0.775rem;
+  color: var(--color-primary-hover);
+  line-height: 1.4;
+}

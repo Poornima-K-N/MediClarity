@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { uploadAndProcessDocument } from '../services/api';
 
 const AppStateContext = createContext(null);
 
@@ -23,7 +24,13 @@ export const AppStateProvider = ({ children }) => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
-  // UI-only uploaded files list
+  // Document Extraction State (Volatile memory only - zero persistent storage)
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [activeUploadName, setActiveUploadName] = useState(null);
+  const [extractionResult, setExtractionResult] = useState(null);
+  const [extractionError, setExtractionError] = useState(null);
+
+  // Processed session files list (displayed in Recent Uploads)
   const [uploadedFiles, setUploadedFiles] = useState([]);
 
   // Synthetic demo data (clearly labelled demo data)
@@ -60,9 +67,7 @@ export const AppStateProvider = ({ children }) => {
   // Capture PWA beforeinstallprompt event (Show prompt ONLY when supported)
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
-      // Prevent browser default mini-infobar
       e.preventDefault();
-      // Stash event so it can be triggered by UI button
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
@@ -88,25 +93,48 @@ export const AppStateProvider = ({ children }) => {
     setIsInstallable(false);
   };
 
-  // UI-only file simulation handler
-  const handleSimulatedFileUpload = (fileList) => {
-    if (!fileList || fileList.length === 0) return;
+  // Real document upload and extraction handler (Module 2)
+  const processRealFileUpload = async (file) => {
+    if (!file) return;
 
-    const newFiles = Array.from(fileList).map((f) => ({
-      name: f.name,
-      size: (f.size / (1024 * 1024)).toFixed(2) + ' MB',
-      type: f.type || 'Document',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'Uploaded (UI Preview)',
-      isSynthetic: true,
-    }));
+    setIsExtracting(true);
+    setExtractionError(null);
+    setActiveUploadName(file.name);
 
-    setUploadedFiles((prev) => [...newFiles, ...prev]);
-    setUploadToast(`Simulated upload of "${newFiles[0].name}". Real processing arrives in Module 2.`);
+    try {
+      const data = await uploadAndProcessDocument(file);
+      setExtractionResult(data);
 
-    setTimeout(() => {
-      setUploadToast(null);
-    }, 4500);
+      // Add to session document list
+      const sessionFile = {
+        name: data.filename || file.name,
+        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+        type: data.file_type?.toUpperCase() || 'DOCUMENT',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: `Extracted (${data.extraction_method?.replace('_', ' ')})`,
+        method: data.extraction_method,
+        isSynthetic: false,
+      };
+
+      setUploadedFiles((prev) => [sessionFile, ...prev]);
+      setUploadToast(`Extracted ${data.word_count} words from ${file.name}.`);
+
+      setTimeout(() => {
+        setUploadToast(null);
+      }, 5000);
+    } catch (err) {
+      console.error('[Document Extraction Error]:', err);
+      setExtractionError(err.message || 'Failed to extract text from document.');
+    } finally {
+      setIsExtracting(false);
+      setActiveUploadName(null);
+    }
+  };
+
+  const clearExtraction = () => {
+    setExtractionResult(null);
+    setExtractionError(null);
+    setActiveUploadName(null);
   };
 
   return (
@@ -124,12 +152,18 @@ export const AppStateProvider = ({ children }) => {
         setUserState,
         syntheticReports,
         uploadedFiles,
-        handleSimulatedFileUpload,
         uploadToast,
         setUploadToast,
         isInstallable,
         triggerInstallPrompt,
         dismissInstallPrompt,
+        // Module 2 Additions
+        isExtracting,
+        activeUploadName,
+        extractionResult,
+        extractionError,
+        processRealFileUpload,
+        clearExtraction,
       }}
     >
       {children}

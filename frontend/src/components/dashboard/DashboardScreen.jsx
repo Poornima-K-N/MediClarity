@@ -6,11 +6,12 @@ import { InstallBanner } from '../common/InstallBanner';
 import { SignInModal } from '../common/SignInModal';
 import { DemoDetailModal } from '../common/DemoDetailModal';
 import { UploadZone } from './UploadZone';
+import { ExtractionPreview } from './ExtractionPreview';
 import { RecentUploads } from './RecentUploads';
 import { QuickTips } from './QuickTips';
 
 export const DashboardScreen = () => {
-  const { activeTab } = useAppState();
+  const { activeTab, extractionResult } = useAppState();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -24,6 +25,7 @@ export const DashboardScreen = () => {
         {activeTab === 'home' && (
           <>
             <UploadZone />
+            {extractionResult && <ExtractionPreview />}
             <RecentUploads />
             <QuickTips />
           </>
@@ -32,12 +34,14 @@ export const DashboardScreen = () => {
         {activeTab === 'upload' && (
           <>
             <UploadZone />
+            {extractionResult && <ExtractionPreview />}
             <QuickTips />
           </>
         )}
 
         {activeTab === 'history' && (
           <>
+            {extractionResult && <ExtractionPreview />}
             <RecentUploads />
           </>
         )}
