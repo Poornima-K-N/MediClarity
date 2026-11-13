@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lightbulb, AlertTriangle, Check, Shield } from 'lucide-react';
+import { Lightbulb, AlertTriangle, Check } from 'lucide-react';
 
 export const QuickTips = () => {
   return (

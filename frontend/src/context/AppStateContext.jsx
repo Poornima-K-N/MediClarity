@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { uploadAndProcessDocument, analyzeMedicalText, fetchHealthCheck } from '../services/api';
+import {
+  uploadAndProcessDocument,
+  analyzeMedicalText,
+  explainMedicalReport,
+  askDocumentQuestion,
+  fetchHealthCheck
+} from '../services/api';
 
 const AppStateContext = createContext(null);
 
@@ -37,6 +43,22 @@ export const AppStateProvider = ({ children }) => {
   const [isAiKeyMissing, setIsAiKeyMissing] = useState(false);
   const [geminiConfigured, setGeminiConfigured] = useState(false);
 
+  // Module 4: Medical Explanations State
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [medicalExplanations, setMedicalExplanations] = useState(null);
+  const [explanationError, setExplanationError] = useState(null);
+
+  // Module 5: Ask Your Report Q&A Chat State
+  const [isAskingQuestion, setIsAskingQuestion] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: 'init-msg',
+      sender: 'assistant',
+      text: 'Ask me anything about your uploaded medical report. All answers are grounded strictly in your document.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }
+  ]);
+
   // Processed session files list (displayed in Recent Uploads)
   const [uploadedFiles, setUploadedFiles] = useState([]);
 
@@ -53,7 +75,7 @@ export const AppStateProvider = ({ children }) => {
         { name: 'WBC Count', value: '6,800 /mcL', status: 'Normal' },
         { name: 'Platelets', value: '240,000 /mcL', status: 'Normal' },
       ],
-      summaryNote: 'Demonstration report: In Module 3, Gemini AI extracts structured lab values and explicit flags with zero hallucination.',
+      summaryNote: 'Demonstration report: Gemini AI extracts structured lab values, provides plain-language explanations, and answers questions.',
     },
     {
       id: 'demo-lipid-02',
@@ -67,7 +89,7 @@ export const AppStateProvider = ({ children }) => {
         { name: 'LDL (Bad)', value: '110 mg/dL', status: 'Borderline' },
         { name: 'Triglycerides', value: '130 mg/dL', status: 'Normal' },
       ],
-      summaryNote: 'Demonstration report: In Module 3, Gemini AI extracts structured lab values and explicit flags with zero hallucination.',
+      summaryNote: 'Demonstration report: Gemini AI extracts structured lab values, provides plain-language explanations, and answers questions.',
     },
   ];
 
@@ -116,6 +138,8 @@ export const AppStateProvider = ({ children }) => {
     setIsExtracting(true);
     setExtractionError(null);
     clearAIAnalysis();
+    clearExplanations();
+    clearChat();
     setActiveUploadName(file.name);
 
     try {
@@ -185,6 +209,94 @@ export const AppStateProvider = ({ children }) => {
     }
   };
 
+  // Module 4: Trigger Plain-English Medical Explanations
+  const triggerMedicalExplanations = async () => {
+    const textToExplain = extractionResult?.extracted_text;
+    if (!textToExplain || !textToExplain.trim()) {
+      setExplanationError('No document text available to generate explanations.');
+      return;
+    }
+
+    setIsExplaining(true);
+    setExplanationError(null);
+
+    try {
+      const data = await explainMedicalReport(textToExplain, aiStructuredData);
+      setMedicalExplanations(data);
+      setUploadToast('Generated plain-English report explanations.');
+      setTimeout(() => setUploadToast(null), 4000);
+    } catch (err) {
+      console.error('[Medical Explanation Error]:', err);
+      setExplanationError(err.message || 'Failed to generate medical explanations.');
+      if (err.missingKey || err.status === 503) {
+        setIsAiKeyMissing(true);
+      }
+    } finally {
+      setIsExplaining(false);
+    }
+  };
+
+  const clearExplanations = () => {
+    setMedicalExplanations(null);
+    setExplanationError(null);
+  };
+
+  // Module 5: Ask Your Report Q&A
+  const askQuestion = async (questionText) => {
+    const textContext = extractionResult?.extracted_text;
+    if (!textContext || !textContext.trim()) {
+      return;
+    }
+
+    const userMsg = {
+      id: 'user-' + Date.now(),
+      sender: 'user',
+      text: questionText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setChatMessages((prev) => [...prev, userMsg]);
+    setIsAskingQuestion(true);
+
+    try {
+      const answerData = await askDocumentQuestion(questionText, textContext, aiStructuredData);
+      const assistantMsg = {
+        id: 'ai-' + Date.now(),
+        sender: 'assistant',
+        text: answerData.answer,
+        grounded: answerData.grounded_in_document,
+        evidence: answerData.quoted_evidence,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setChatMessages((prev) => [...prev, assistantMsg]);
+    } catch (err) {
+      const errorMsg = {
+        id: 'err-' + Date.now(),
+        sender: 'assistant',
+        text: `Error: ${err.message || 'Could not retrieve answer from document.'}`,
+        isError: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setChatMessages((prev) => [...prev, errorMsg]);
+      if (err.missingKey || err.status === 503) {
+        setIsAiKeyMissing(true);
+      }
+    } finally {
+      setIsAskingQuestion(false);
+    }
+  };
+
+  const clearChat = () => {
+    setChatMessages([
+      {
+        id: 'init-msg',
+        sender: 'assistant',
+        text: 'Ask me anything about your uploaded medical report. All answers are grounded strictly in your document.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }
+    ]);
+  };
+
   const clearAIAnalysis = () => {
     setAiStructuredData(null);
     setAiAnalysisError(null);
@@ -196,6 +308,8 @@ export const AppStateProvider = ({ children }) => {
     setExtractionError(null);
     setActiveUploadName(null);
     clearAIAnalysis();
+    clearExplanations();
+    clearChat();
   };
 
   return (
@@ -233,6 +347,17 @@ export const AppStateProvider = ({ children }) => {
         geminiConfigured,
         triggerGeminiAnalysis,
         clearAIAnalysis,
+        // Module 4 Medical Explanations
+        isExplaining,
+        medicalExplanations,
+        explanationError,
+        triggerMedicalExplanations,
+        clearExplanations,
+        // Module 5 Ask Your Report
+        isAskingQuestion,
+        chatMessages,
+        askQuestion,
+        clearChat,
       }}
     >
       {children}

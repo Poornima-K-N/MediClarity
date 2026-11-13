@@ -8,6 +8,8 @@ import { DemoDetailModal } from '../common/DemoDetailModal';
 import { UploadZone } from './UploadZone';
 import { ExtractionPreview } from './ExtractionPreview';
 import { StructuredMedicalDashboard } from './StructuredMedicalDashboard';
+import { MedicalExplanations } from './MedicalExplanations';
+import { AskYourReport } from './AskYourReport';
 import { RecentUploads } from './RecentUploads';
 import { QuickTips } from './QuickTips';
 
@@ -28,8 +30,14 @@ export const DashboardScreen = () => {
         {activeTab === 'home' && (
           <>
             <UploadZone />
-            {extractionResult && <ExtractionPreview />}
-            {showStructuredDashboard && <StructuredMedicalDashboard />}
+            {extractionResult && (
+              <>
+                <ExtractionPreview />
+                {showStructuredDashboard && <StructuredMedicalDashboard />}
+                <MedicalExplanations />
+                <AskYourReport />
+              </>
+            )}
             <RecentUploads />
             <QuickTips />
           </>
@@ -38,16 +46,28 @@ export const DashboardScreen = () => {
         {activeTab === 'upload' && (
           <>
             <UploadZone />
-            {extractionResult && <ExtractionPreview />}
-            {showStructuredDashboard && <StructuredMedicalDashboard />}
+            {extractionResult && (
+              <>
+                <ExtractionPreview />
+                {showStructuredDashboard && <StructuredMedicalDashboard />}
+                <MedicalExplanations />
+                <AskYourReport />
+              </>
+            )}
             <QuickTips />
           </>
         )}
 
         {activeTab === 'history' && (
           <>
-            {extractionResult && <ExtractionPreview />}
-            {showStructuredDashboard && <StructuredMedicalDashboard />}
+            {extractionResult && (
+              <>
+                <ExtractionPreview />
+                {showStructuredDashboard && <StructuredMedicalDashboard />}
+                <MedicalExplanations />
+                <AskYourReport />
+              </>
+            )}
             <RecentUploads />
           </>
         )}

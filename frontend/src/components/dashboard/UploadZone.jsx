@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAppState } from '../../context/AppStateContext';
-import { UploadCloud, Loader2, AlertCircle, FileText, CheckCircle2, X } from 'lucide-react';
+import { UploadCloud, Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 export const UploadZone = () => {
   const {

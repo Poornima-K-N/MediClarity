@@ -11,7 +11,9 @@ from ..services.validator import (
 from ..services.extractor import extract_document_text
 from ..services.gemini_service import (
     GeminiError,
-    extract_structured_medical_data
+    extract_structured_medical_data,
+    generate_medical_explanations,
+    answer_document_question
 )
 
 document_bp = Blueprint('document', __name__)
@@ -20,8 +22,8 @@ document_bp = Blueprint('document', __name__)
 def health_check():
     return jsonify({
         'status': 'healthy',
-        'service': 'MediClarity AI Document Processing & Gemini Extraction Engine',
-        'version': '3.0.0',
+        'service': 'MediClarity AI Comprehensive Medical Report Engine',
+        'version': '5.0.0',
         'gemini_configured': bool(Config.GEMINI_API_KEY),
         'gemini_model': Config.GEMINI_MODEL,
         'limits': {
@@ -56,8 +58,6 @@ def process_document():
             'error': f"Unsupported file extension '.{ext}'. Allowed types are PDF, PNG, JPG, and JPEG."
         }), 415
 
-    should_analyze_ai = request.form.get('analyze_ai') == 'true'
-
     # 2. Ephemeral execution context: guarantees temporary files are deleted
     try:
         with EphemeralDirectory() as temp_dir:
@@ -73,21 +73,6 @@ def process_document():
             # 5. Selective Hybrid Text Extraction
             extraction_result = extract_document_text(saved_path, detected_type)
 
-            ai_analysis = None
-            ai_error = None
-
-            # Optional automatic Gemini analysis if requested and key is present
-            if should_analyze_ai:
-                if Config.GEMINI_API_KEY:
-                    try:
-                        ai_analysis = extract_structured_medical_data(extraction_result['extracted_text'])
-                    except GeminiError as g_err:
-                        ai_error = g_err.message
-                    except Exception as e:
-                        ai_error = f"Gemini extraction error: {str(e)}"
-                else:
-                    ai_error = "Gemini API key is not configured in backend environment variables."
-
             # Return success response
             return jsonify({
                 'status': 'success',
@@ -99,8 +84,6 @@ def process_document():
                 'char_count': extraction_result['char_count'],
                 'extracted_text': extraction_result['extracted_text'],
                 'pages': extraction_result['pages'],
-                'ai_analysis': ai_analysis,
-                'ai_error': ai_error,
                 'gemini_configured': bool(Config.GEMINI_API_KEY)
             }), 200
 
@@ -120,7 +103,7 @@ def process_document():
 @document_bp.route('/analyze-medical-text', methods=['POST'])
 def analyze_medical_text():
     """
-    Dedicated endpoint to analyze already-extracted medical text via Gemini API.
+    Module 3: Extracts structured clinical data (tests, observed values, units, ranges, flags).
     """
     data = request.get_json(silent=True) or {}
     text = data.get('text', '').strip()
@@ -157,4 +140,96 @@ def analyze_medical_text():
         return jsonify({
             'status': 'error',
             'error': f"Failed to extract structured medical information: {str(exc)}"
+        }), 500
+
+
+@document_bp.route('/explain-medical-report', methods=['POST'])
+def explain_medical_report():
+    """
+    Module 4: Generates plain-English medical explanations comparing test values
+    against report reference ranges and explaining terms simply.
+    """
+    data = request.get_json(silent=True) or {}
+    text = data.get('text', '').strip()
+    structured_data = data.get('structured_data')
+
+    if not text:
+        return jsonify({
+            'status': 'error',
+            'error': 'No medical document text provided for explanation.'
+        }), 400
+
+    if not Config.GEMINI_API_KEY:
+        return jsonify({
+            'status': 'error',
+            'error': 'Gemini API key is not configured in backend environment variables (GEMINI_API_KEY).',
+            'missing_key': True
+        }), 503
+
+    try:
+        explanations = generate_medical_explanations(text, structured_data)
+        return jsonify({
+            'status': 'success',
+            'explanations': explanations
+        }), 200
+
+    except GeminiError as g_err:
+        return jsonify({
+            'status': 'error',
+            'error': g_err.message
+        }), g_err.status_code
+
+    except Exception as exc:
+        return jsonify({
+            'status': 'error',
+            'error': f"Failed to generate medical explanations: {str(exc)}"
+        }), 500
+
+
+@document_bp.route('/ask-document', methods=['POST'])
+def ask_document():
+    """
+    Module 5: Answers patient questions strictly grounded in the extracted document text.
+    """
+    data = request.get_json(silent=True) or {}
+    question = data.get('question', '').strip()
+    text = data.get('text', '').strip()
+    structured_data = data.get('structured_data')
+
+    if not question:
+        return jsonify({
+            'status': 'error',
+            'error': 'Please enter a question to ask your report.'
+        }), 400
+
+    if not text:
+        return jsonify({
+            'status': 'error',
+            'error': 'No document text found. Please upload a report before asking questions.'
+        }), 400
+
+    if not Config.GEMINI_API_KEY:
+        return jsonify({
+            'status': 'error',
+            'error': 'Gemini API key is not configured in backend environment variables (GEMINI_API_KEY).',
+            'missing_key': True
+        }), 503
+
+    try:
+        answer_data = answer_document_question(question, text, structured_data)
+        return jsonify({
+            'status': 'success',
+            'response': answer_data
+        }), 200
+
+    except GeminiError as g_err:
+        return jsonify({
+            'status': 'error',
+            'error': g_err.message
+        }), g_err.status_code
+
+    except Exception as exc:
+        return jsonify({
+            'status': 'error',
+            'error': f"Failed to answer question from document: {str(exc)}"
         }), 500

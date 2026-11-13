@@ -30,7 +30,6 @@ export const validateClientFile = (file) => {
 };
 
 export const uploadAndProcessDocument = async (file) => {
-  // Pre-validate in browser
   validateClientFile(file);
 
   const formData = new FormData();
@@ -40,7 +39,6 @@ export const uploadAndProcessDocument = async (file) => {
     const response = await fetch('/api/process-document', {
       method: 'POST',
       body: formData,
-      // Browser automatically sets multipart/form-data boundary
     });
 
     const data = await response.json().catch(() => null);
@@ -96,6 +94,84 @@ export const analyzeMedicalText = async (text, filename = 'document') => {
       throw new Error(
         'Could not reach the backend server to run Gemini extraction. Please verify the Flask server is running.'
       );
+    }
+    throw err;
+  }
+};
+
+// Module 4: Explain Medical Report in Plain English
+export const explainMedicalReport = async (text, structuredData = null) => {
+  if (!text || !text.trim()) {
+    throw new Error('No extracted text available to explain.');
+  }
+
+  try {
+    const response = await fetch('/api/explain-medical-report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        structured_data: structuredData,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const errorMessage = data?.error || `Explanation failed with HTTP status ${response.status}.`;
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.missingKey = Boolean(data?.missing_key);
+      throw error;
+    }
+
+    return data.explanations;
+  } catch (err) {
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      throw new Error('Could not reach backend server for medical explanations.');
+    }
+    throw err;
+  }
+};
+
+// Module 5: Ask Your Report Q&A
+export const askDocumentQuestion = async (question, text, structuredData = null) => {
+  if (!question || !question.trim()) {
+    throw new Error('Please enter a question.');
+  }
+  if (!text || !text.trim()) {
+    throw new Error('No report text available to answer from.');
+  }
+
+  try {
+    const response = await fetch('/api/ask-document', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        question: question.trim(),
+        text,
+        structured_data: structuredData,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const errorMessage = data?.error || `Q&A failed with HTTP status ${response.status}.`;
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.missingKey = Boolean(data?.missing_key);
+      throw error;
+    }
+
+    return data.response;
+  } catch (err) {
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      throw new Error('Could not reach backend server to answer question.');
     }
     throw err;
   }

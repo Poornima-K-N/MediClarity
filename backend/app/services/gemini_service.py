@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from google import genai
 from google.genai import types
 from ..config import Config
@@ -76,6 +77,64 @@ JSON SCHEMA:
 }
 """
 
+EXPLANATION_SYSTEM_PROMPT = """You are MediClarity AI's Medical Explanation Engine (Module 4).
+Your role is to translate medical laboratory reports and prescriptions into simple, plain English that patients and caregivers can understand.
+
+CRITICAL RULES:
+1. DISTINCT OBSERVATION VS EXPLANATION: Clearly distinguish between:
+   a) "document_observation": What the uploaded document explicitly states (e.g. "Your report records Hemoglobin as 14.5 g/dL, which is within the stated reference range of 13.5 - 17.5 g/dL").
+   b) "plain_english_explanation": General educational definition of what the biological marker is (e.g. "Hemoglobin is an iron-rich protein in red blood cells that carries oxygen throughout your body").
+2. NEVER INVENT REFERENCE RANGES: Compare test values ONLY against reference ranges explicitly written in the report. If no reference range is printed, state that the lab report did not include a reference range.
+3. HIGH / LOW IDENTIFICATION: Identify tests clearly marked as High, Low, or outside the lab-provided range without guessing.
+4. NEVER DIAGNOSE OR PRESCRIBE: Do NOT tell the patient they have a condition, do not suggest diseases, and do not propose medication changes.
+5. QUESTIONS FOR DOCTOR: Provide 2-3 thoughtful questions the patient can ask their physician.
+6. OUTPUT FORMAT: Return strictly valid JSON matching the schema below.
+
+JSON SCHEMA:
+{
+  "general_summary": string,
+  "test_explanations": [
+    {
+      "test_name": string,
+      "observed_value": string,
+      "reference_range": string | null,
+      "status_summary": "Within Normal Range" | "Higher than Lab Range" | "Lower than Lab Range" | "Marked Abnormal" | "Reported Normal" | "No Reference Range Stated",
+      "document_observation": string,
+      "plain_english_explanation": string
+    }
+  ],
+  "medication_explanations": [
+    {
+      "medicine_name": string,
+      "dosage": string | null,
+      "document_instructions": string | null,
+      "plain_english_purpose": string
+    }
+  ],
+  "questions_for_doctor": [string],
+  "disclaimer": "These explanations are provided for educational clarity only and do not replace professional medical advice or clinical diagnosis. Consult your licensed healthcare provider."
+}
+"""
+
+ASK_REPORT_SYSTEM_PROMPT = """You are MediClarity AI's 'Ask Your Report' Q&A Assistant (Module 5).
+Your role is to answer patient and caregiver questions about their currently uploaded medical report.
+
+CRITICAL GROUNDING & SAFETY RULES:
+1. STRICT FACTUAL GROUNDING: Answer questions based ONLY on the provided extracted document text and structured medical data.
+2. MISSING INFORMATION: If the answer is NOT present or cannot be determined from the document text, reply clearly and politely: "This information is not mentioned in your uploaded report." Never speculate, assume, or retrieve hypothetical values.
+3. NO CLINICAL DIAGNOSES OR TREATMENT: Do NOT diagnose diseases, judge prognosis, or advise changing, stopping, or starting treatments or dosages.
+4. QUOTED EVIDENCE: When answering from the document, provide a short direct quote or reference from the text when applicable.
+5. OUTPUT FORMAT: Return strictly valid JSON.
+
+JSON SCHEMA:
+{
+  "answer": string,
+  "grounded_in_document": boolean,
+  "quoted_evidence": string | null,
+  "disclaimer": "Answers are generated for educational clarity based strictly on your uploaded document. Consult your doctor for medical diagnosis or treatment decisions."
+}
+"""
+
 
 def clean_json_response(raw_text):
     """
@@ -86,8 +145,6 @@ def clean_json_response(raw_text):
         raise GeminiExtractionError("Empty response received from Gemini API.")
 
     cleaned = raw_text.strip()
-    
-    # Strip markdown ```json ... ``` fences if present
     match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', cleaned, re.IGNORECASE)
     if match:
         cleaned = match.group(1).strip()
@@ -99,11 +156,26 @@ def clean_json_response(raw_text):
         raise GeminiExtractionError(f"Could not parse Gemini JSON response: {str(e)}")
 
 
+def _call_gemini_with_retry(client, model, contents, config, max_retries=2):
+    """Executes a Gemini call with brief backoff on transient demand spikes."""
+    for attempt in range(max_retries + 1):
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=config
+            )
+        except Exception as exc:
+            err_str = str(exc)
+            is_transient = any(code in err_str for code in ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED"))
+            if is_transient and attempt < max_retries:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            raise exc
+
+
 def extract_structured_medical_data(document_text, custom_api_key=None):
-    """
-    Calls Gemini API using google-genai SDK to extract structured lab tests,
-    reference ranges, flags, and medications from document text.
-    """
+    """Module 3: Structured fact extraction."""
     api_key = custom_api_key or Config.GEMINI_API_KEY
     if not api_key:
         raise GeminiConfigurationError()
@@ -113,34 +185,26 @@ def extract_structured_medical_data(document_text, custom_api_key=None):
 
     try:
         client = genai.Client(api_key=api_key)
-        
         user_prompt = f"Extract structured medical information from the following document text:\n\n{document_text}"
 
-        response = client.models.generate_content(
+        response = _call_gemini_with_retry(
+            client=client,
             model=Config.GEMINI_MODEL,
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
                 response_mime_type="application/json",
-                temperature=0.0, # Deterministic fact extraction
+                temperature=0.0,
             )
         )
 
-        raw_output = response.text
-        parsed_data = clean_json_response(raw_output)
+        parsed_data = clean_json_response(response.text)
 
-        # Ensure required arrays exist
         if 'lab_tests' not in parsed_data or not isinstance(parsed_data['lab_tests'], list):
             parsed_data['lab_tests'] = []
 
         if 'medications' not in parsed_data or not isinstance(parsed_data['medications'], list):
             parsed_data['medications'] = []
-
-        if 'disclaimer' not in parsed_data:
-            parsed_data['disclaimer'] = (
-                "This structured extraction is generated by MediClarity AI for patient educational clarity only. "
-                "It does not provide medical diagnoses or treatment recommendations. Consult your licensed physician."
-            )
 
         return parsed_data
 
@@ -150,7 +214,111 @@ def extract_structured_medical_data(document_text, custom_api_key=None):
         err_str = str(exc)
         if "API_KEY_INVALID" in err_str or "API key not valid" in err_str:
             raise GeminiConfigurationError("The provided GEMINI_API_KEY is invalid or expired.")
-        elif "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+        elif "503" in err_str or "UNAVAILABLE" in err_str:
+            raise GeminiExtractionError("The AI service is experiencing high demand. Please try again in a few moments.", status_code=503)
+        elif "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower() or "429" in err_str:
             raise GeminiExtractionError("Gemini API rate limit or quota exceeded. Please try again shortly.", status_code=429)
         else:
             raise GeminiExtractionError(f"Gemini API request failed: {err_str}", status_code=502)
+
+
+def generate_medical_explanations(document_text, structured_data=None, custom_api_key=None):
+    """Module 4: Plain-English medical explanations."""
+    api_key = custom_api_key or Config.GEMINI_API_KEY
+    if not api_key:
+        raise GeminiConfigurationError()
+
+    if not document_text or not document_text.strip():
+        raise GeminiExtractionError("Cannot explain an empty document.", status_code=400)
+
+    prompt = f"Document Text:\n{document_text}\n"
+    if structured_data:
+        prompt += f"\nPreviously Extracted Structured Data:\n{json.dumps(structured_data, indent=2)}\n"
+    prompt += "\nExplain the medical observations and terms in simple English following the strict clinical rules."
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = _call_gemini_with_retry(
+            client=client,
+            model=Config.GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=EXPLANATION_SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                temperature=0.0,
+            )
+        )
+
+        data = clean_json_response(response.text)
+        if 'test_explanations' not in data or not isinstance(data['test_explanations'], list):
+            data['test_explanations'] = []
+        if 'medication_explanations' not in data or not isinstance(data['medication_explanations'], list):
+            data['medication_explanations'] = []
+        if 'questions_for_doctor' not in data or not isinstance(data['questions_for_doctor'], list):
+            data['questions_for_doctor'] = []
+
+        return data
+
+    except GeminiError:
+        raise
+    except Exception as exc:
+        err_str = str(exc)
+        if "API_KEY_INVALID" in err_str or "API key not valid" in err_str:
+            raise GeminiConfigurationError("The provided GEMINI_API_KEY is invalid or expired.")
+        elif "503" in err_str or "UNAVAILABLE" in err_str:
+            raise GeminiExtractionError("The AI service is experiencing high demand. Please try again in a few moments.", status_code=503)
+        elif "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower() or "429" in err_str:
+            raise GeminiExtractionError("Gemini API rate limit exceeded.", status_code=429)
+        else:
+            raise GeminiExtractionError(f"Medical explanation failed: {err_str}", status_code=502)
+
+
+def answer_document_question(question, document_text, structured_data=None, custom_api_key=None):
+    """Module 5: Strictly grounded document Q&A."""
+    api_key = custom_api_key or Config.GEMINI_API_KEY
+    if not api_key:
+        raise GeminiConfigurationError()
+
+    if not question or not question.strip():
+        raise GeminiExtractionError("Question cannot be empty.", status_code=400)
+
+    if not document_text or not document_text.strip():
+        raise GeminiExtractionError("No document context provided to answer question.", status_code=400)
+
+    prompt = f"USER QUESTION: {question.strip()}\n\nDOCUMENT TEXT:\n{document_text}\n"
+    if structured_data:
+        prompt += f"\nSTRUCTURED FACTS:\n{json.dumps(structured_data, indent=2)}\n"
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = _call_gemini_with_retry(
+            client=client,
+            model=Config.GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=ASK_REPORT_SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                temperature=0.1,
+            )
+        )
+
+        data = clean_json_response(response.text)
+        if 'answer' not in data:
+            data['answer'] = "Could not parse an answer from the document."
+        if 'grounded_in_document' not in data:
+            data['grounded_in_document'] = False
+
+        return data
+
+    except GeminiError:
+        raise
+    except Exception as exc:
+        err_str = str(exc)
+        if "API_KEY_INVALID" in err_str or "API key not valid" in err_str:
+            raise GeminiConfigurationError("The provided GEMINI_API_KEY is invalid or expired.")
+        elif "503" in err_str or "UNAVAILABLE" in err_str:
+            raise GeminiExtractionError("The AI service is experiencing high demand. Please try again in a few moments.", status_code=503)
+        elif "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower() or "429" in err_str:
+            raise GeminiExtractionError("Gemini API rate limit exceeded.", status_code=429)
+        else:
+            raise GeminiExtractionError(f"Question answering failed: {err_str}", status_code=502)
