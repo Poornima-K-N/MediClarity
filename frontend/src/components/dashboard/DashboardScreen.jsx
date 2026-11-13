@@ -7,11 +7,14 @@ import { SignInModal } from '../common/SignInModal';
 import { DemoDetailModal } from '../common/DemoDetailModal';
 import { UploadZone } from './UploadZone';
 import { ExtractionPreview } from './ExtractionPreview';
+import { StructuredMedicalDashboard } from './StructuredMedicalDashboard';
 import { RecentUploads } from './RecentUploads';
 import { QuickTips } from './QuickTips';
 
 export const DashboardScreen = () => {
-  const { activeTab, extractionResult } = useAppState();
+  const { activeTab, extractionResult, aiStructuredData, isAiKeyMissing, aiAnalysisError } = useAppState();
+
+  const showStructuredDashboard = Boolean(aiStructuredData || isAiKeyMissing || (aiAnalysisError && extractionResult));
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -26,6 +29,7 @@ export const DashboardScreen = () => {
           <>
             <UploadZone />
             {extractionResult && <ExtractionPreview />}
+            {showStructuredDashboard && <StructuredMedicalDashboard />}
             <RecentUploads />
             <QuickTips />
           </>
@@ -35,6 +39,7 @@ export const DashboardScreen = () => {
           <>
             <UploadZone />
             {extractionResult && <ExtractionPreview />}
+            {showStructuredDashboard && <StructuredMedicalDashboard />}
             <QuickTips />
           </>
         )}
@@ -42,6 +47,7 @@ export const DashboardScreen = () => {
         {activeTab === 'history' && (
           <>
             {extractionResult && <ExtractionPreview />}
+            {showStructuredDashboard && <StructuredMedicalDashboard />}
             <RecentUploads />
           </>
         )}

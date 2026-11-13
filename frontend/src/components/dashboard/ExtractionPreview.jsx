@@ -8,11 +8,19 @@ import {
   ShieldCheck,
   Layers,
   Sparkles,
-  Cpu
+  Cpu,
+  Loader2
 } from 'lucide-react';
 
 export const ExtractionPreview = () => {
-  const { extractionResult, clearExtraction } = useAppState();
+  const {
+    extractionResult,
+    clearExtraction,
+    triggerGeminiAnalysis,
+    isAnalyzingAI,
+    aiStructuredData,
+  } = useAppState();
+
   const [copied, setCopied] = useState(false);
   const [selectedPageTab, setSelectedPageTab] = useState('all');
 
@@ -103,9 +111,31 @@ export const ExtractionPreview = () => {
         </div>
 
         <div className="extraction-actions">
+          {/* Gemini AI Structured Extraction CTA */}
+          <button
+            onClick={() => triggerGeminiAnalysis()}
+            disabled={isAnalyzingAI}
+            className="btn-gemini-ai"
+            title="Extract structured test values and prescriptions via Gemini API"
+          >
+            {isAnalyzingAI ? (
+              <>
+                <Loader2 size={16} className="spinner-icon" />
+                <span>Extracting with Gemini...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={16} />
+                <span>
+                  {aiStructuredData ? 'Re-extract with Gemini' : 'Extract Structured Facts (Gemini AI)'}
+                </span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={handleCopy}
-            className="btn-primary"
+            className="btn-secondary"
             style={{ fontSize: '0.85rem', padding: '8px 14px', minHeight: '38px' }}
             aria-label="Copy extracted text to clipboard"
           >
@@ -115,11 +145,11 @@ export const ExtractionPreview = () => {
 
           <button
             onClick={clearExtraction}
-            className="btn-secondary"
-            style={{ fontSize: '0.85rem', padding: '8px 14px', minHeight: '38px' }}
+            className="btn-ghost"
+            style={{ fontSize: '0.85rem', padding: '8px 12px', minHeight: '38px' }}
             aria-label="Upload another document"
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={15} />
             <span>Upload Another</span>
           </button>
         </div>

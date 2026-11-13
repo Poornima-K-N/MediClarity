@@ -897,3 +897,309 @@
   color: var(--color-primary-hover);
   line-height: 1.4;
 }
+
+
+/* ==========================================================================
+   11. Module 3: Gemini AI Medical Dashboard & Extraction Styles
+   ========================================================================= */
+
+/* Gemini AI Action Button */
+.btn-gemini-ai {
+  background: linear-gradient(135deg, #4F46E5 0%, #0D9488 100%);
+  color: #FFFFFF;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
+  font-size: 0.85rem;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-gemini-ai:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4338CA 0%, #0F766E 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+}
+
+.btn-gemini-ai:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* Structured Medical Dashboard Card */
+.structured-dashboard-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--spacing-xl);
+  animation: slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.structured-header {
+  margin-bottom: var(--spacing-md);
+}
+
+.structured-main-title {
+  font-size: 1.25rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
+  letter-spacing: -0.01em;
+}
+
+.structured-meta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: 6px;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.775rem;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-muted);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.badge-ai-pulse {
+  background: linear-gradient(135deg, #EEF2FF 0%, #F0FDFA 100%);
+  color: #4338CA;
+  border: 1px solid #C7D2FE;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Summary Box */
+.structured-summary-box {
+  background-color: var(--color-primary-subtle);
+  border: 1px solid var(--color-primary-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Sections */
+.structured-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.structured-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 1.05rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Lab Tests Table */
+.tests-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: #FFFFFF;
+}
+
+.tests-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.tests-table th {
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.775rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tests-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  vertical-align: middle;
+}
+
+.tests-table tr:last-child td {
+  border-bottom: none;
+}
+
+.tests-table tr:hover {
+  background-color: #F8FAFC;
+}
+
+.test-name-cell {
+  color: var(--color-text-main);
+  font-weight: var(--font-weight-medium);
+}
+
+.test-value-cell {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-main);
+}
+
+.test-unit {
+  font-weight: normal;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.test-ref-cell {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.text-muted-italic {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.775rem;
+}
+
+.flag-reason-note {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Flag Badges */
+.badge-flag-high {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FCA5A5;
+  font-weight: var(--font-weight-bold);
+}
+
+.badge-flag-low {
+  background-color: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #BFDBFE;
+  font-weight: var(--font-weight-bold);
+}
+
+.badge-flag-abnormal {
+  background-color: #F3E8FF;
+  color: #6B21A8;
+  border: 1px solid #D8B4FE;
+  font-weight: var(--font-weight-bold);
+}
+
+.badge-flag-none {
+  background-color: #F1F5F9;
+  color: #64748B;
+  border: 1px solid #E2E8F0;
+}
+
+.grounding-footnote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Medications Grid */
+.medications-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
+}
+
+@media (min-width: 640px) {
+  .medications-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.medication-card {
+  background-color: #F8FAFC;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+}
+
+.medication-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.medication-icon-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.medication-name {
+  font-size: 0.95rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-main);
+}
+
+.medication-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.med-detail-item {
+  display: flex;
+  gap: 6px;
+}
+
+.med-label {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  min-width: 76px;
+}
+
+.med-val {
+  color: var(--color-text-main);
+  font-weight: var(--font-weight-medium);
+}
+
+/* AI Disclaimer */
+.ai-disclaimer-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background-color: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+}
+
+/* Missing Key Card */
+.missing-key-banner {
+  background-color: #FFFBEB;
+  border: 1px solid #FCD34D;
+}
+
+.missing-key-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background-color: #FEF3C7;
+  color: #D97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

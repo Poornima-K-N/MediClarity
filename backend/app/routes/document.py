@@ -9,6 +9,10 @@ from ..services.validator import (
     get_file_extension
 )
 from ..services.extractor import extract_document_text
+from ..services.gemini_service import (
+    GeminiError,
+    extract_structured_medical_data
+)
 
 document_bp = Blueprint('document', __name__)
 
@@ -16,8 +20,10 @@ document_bp = Blueprint('document', __name__)
 def health_check():
     return jsonify({
         'status': 'healthy',
-        'service': 'MediClarity AI Document Processing Engine',
-        'version': '2.0.0',
+        'service': 'MediClarity AI Document Processing & Gemini Extraction Engine',
+        'version': '3.0.0',
+        'gemini_configured': bool(Config.GEMINI_API_KEY),
+        'gemini_model': Config.GEMINI_MODEL,
         'limits': {
             'max_file_size_mb': Config.MAX_CONTENT_LENGTH // (1024 * 1024),
             'max_pdf_pages': Config.MAX_PDF_PAGES,
@@ -50,6 +56,8 @@ def process_document():
             'error': f"Unsupported file extension '.{ext}'. Allowed types are PDF, PNG, JPG, and JPEG."
         }), 415
 
+    should_analyze_ai = request.form.get('analyze_ai') == 'true'
+
     # 2. Ephemeral execution context: guarantees temporary files are deleted
     try:
         with EphemeralDirectory() as temp_dir:
@@ -65,6 +73,21 @@ def process_document():
             # 5. Selective Hybrid Text Extraction
             extraction_result = extract_document_text(saved_path, detected_type)
 
+            ai_analysis = None
+            ai_error = None
+
+            # Optional automatic Gemini analysis if requested and key is present
+            if should_analyze_ai:
+                if Config.GEMINI_API_KEY:
+                    try:
+                        ai_analysis = extract_structured_medical_data(extraction_result['extracted_text'])
+                    except GeminiError as g_err:
+                        ai_error = g_err.message
+                    except Exception as e:
+                        ai_error = f"Gemini extraction error: {str(e)}"
+                else:
+                    ai_error = "Gemini API key is not configured in backend environment variables."
+
             # Return success response
             return jsonify({
                 'status': 'success',
@@ -75,7 +98,10 @@ def process_document():
                 'word_count': extraction_result['word_count'],
                 'char_count': extraction_result['char_count'],
                 'extracted_text': extraction_result['extracted_text'],
-                'pages': extraction_result['pages']
+                'pages': extraction_result['pages'],
+                'ai_analysis': ai_analysis,
+                'ai_error': ai_error,
+                'gemini_configured': bool(Config.GEMINI_API_KEY)
             }), 200
 
     except ValidationError as val_err:
@@ -85,8 +111,50 @@ def process_document():
         }), val_err.status_code
 
     except Exception as exc:
-        # Avoid leaking internal system traceback to client
         return jsonify({
             'status': 'error',
             'error': f"An unexpected error occurred while processing the document: {str(exc)}"
+        }), 500
+
+
+@document_bp.route('/analyze-medical-text', methods=['POST'])
+def analyze_medical_text():
+    """
+    Dedicated endpoint to analyze already-extracted medical text via Gemini API.
+    """
+    data = request.get_json(silent=True) or {}
+    text = data.get('text', '').strip()
+    filename = data.get('filename', 'document')
+
+    if not text:
+        return jsonify({
+            'status': 'error',
+            'error': 'No medical document text provided for analysis.'
+        }), 400
+
+    if not Config.GEMINI_API_KEY:
+        return jsonify({
+            'status': 'error',
+            'error': 'Gemini API key is not configured in backend environment variables (GEMINI_API_KEY).',
+            'missing_key': True
+        }), 503
+
+    try:
+        structured_data = extract_structured_medical_data(text)
+        return jsonify({
+            'status': 'success',
+            'filename': filename,
+            'structured_data': structured_data
+        }), 200
+
+    except GeminiError as g_err:
+        return jsonify({
+            'status': 'error',
+            'error': g_err.message
+        }), g_err.status_code
+
+    except Exception as exc:
+        return jsonify({
+            'status': 'error',
+            'error': f"Failed to extract structured medical information: {str(exc)}"
         }), 500

@@ -54,10 +54,47 @@ export const uploadAndProcessDocument = async (file) => {
 
     return data;
   } catch (err) {
-    // Pass through explicit API errors or format network failures
     if (err.name === 'TypeError' && err.message.includes('fetch')) {
       throw new Error(
         'Could not reach the document extraction server. Please ensure the backend is running.'
+      );
+    }
+    throw err;
+  }
+};
+
+export const analyzeMedicalText = async (text, filename = 'document') => {
+  if (!text || !text.trim()) {
+    throw new Error('No extracted text available to analyze.');
+  }
+
+  try {
+    const response = await fetch('/api/analyze-medical-text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text,
+        filename,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const errorMessage = data?.error || `Gemini analysis failed with HTTP status ${response.status}.`;
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.missingKey = Boolean(data?.missing_key);
+      throw error;
+    }
+
+    return data.structured_data;
+  } catch (err) {
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      throw new Error(
+        'Could not reach the backend server to run Gemini extraction. Please verify the Flask server is running.'
       );
     }
     throw err;
