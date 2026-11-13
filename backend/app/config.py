@@ -59,3 +59,14 @@ class Config:
     # Key is read strictly from backend environment variables
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY') or ''
     GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.8-flash')
+
+    # Frontend distribution directory for production combined serving
+    _dist_candidates = [
+        os.environ.get('FRONTEND_DIST_DIR'),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'dist')),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'dist')),
+        '/app/frontend/dist',
+        '/app/dist',
+    ]
+    FRONTEND_DIST_DIR = next((d for d in _dist_candidates if d and os.path.exists(d)), _dist_candidates[1])

@@ -130,11 +130,31 @@ npm run build
 
 ---
 
-## Render Deployment Guide (Tesseract OCR + Gemini)
+## Render Deployment Guide (Combined Docker Service)
 
-When deploying to [Render.com](https://render.com), use the **Docker Web Service** configuration:
-1. Connect repository to Render.
-2. Select **Web Service** $\to$ **Docker**.
-3. Set the Docker Context to root and the Dockerfile path to `backend/Dockerfile`.
-4. Add the environment variable `GEMINI_API_KEY` under the Render Environment tab.
-5. Render builds the container with Ubuntu, installs `tesseract-ocr`, `tesseract-ocr-eng`, installs `requirements.txt`, and launches via Gunicorn.
+MediClarity deploys on [Render.com](https://render.com) as a single unified **Docker Web Service**, combining the React PWA frontend and Python Flask backend:
+
+### Deployment Steps:
+1. Push your latest code to your GitHub/GitLab repository (ensuring `.env` remains ignored).
+2. Log into **[Render Dashboard](https://dashboard.render.com)** $\to$ **New** $\to$ **Web Service**.
+3. Connect your repository.
+4. Configure the Web Service settings:
+   - **Name:** `mediclarity-ai` (or your preferred name)
+   - **Region:** Any region close to your users (e.g. Frankfurt, Oregon, Ohio, Singapore)
+   - **Branch:** `main`
+   - **Root Directory:** Leave blank (defaults to repository root `.`)
+   - **Runtime:** **Docker**
+   - **Dockerfile Path:** `Dockerfile` (or `backend/Dockerfile`)
+   - **Instance Type:** Free or Starter
+5. Under **Environment Variables**, add:
+   - `GEMINI_API_KEY` = *your_google_gemini_api_key*
+   - `GEMINI_MODEL` = `gemini-3.8-flash` (optional, defaults to `gemini-3.8-flash`)
+6. (Optional) Under **Advanced Settings**, configure Health Check:
+   - **Health Check Path:** `/health`
+7. Click **Create Web Service**.
+
+### How the Docker Build Works:
+- **Stage 1 (Node.js 20):** Installs frontend dependencies and builds the optimized production React PWA into `frontend/dist/`.
+- **Stage 2 (Python 3.13 Slim):** Installs `tesseract-ocr`, `tesseract-ocr-eng`, `libgl1`, and Python backend dependencies.
+- **Combined Delivery:** Flask serves the React PWA, registers the Service Worker (`/sw.js`), delivers the Web App Manifest (`/manifest.webmanifest`), and handles all `/api/*` endpoints with zero-cache privacy headers.
+- **Dynamic Port:** Gunicorn binds to `0.0.0.0:${PORT:-5000}` automatically matching Render's assigned port.
